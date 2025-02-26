@@ -13,7 +13,7 @@ public class Attack {
 
     //Getters
     public String getName() { return name;}
-    public int getdamage() { return damage;}
+    public int getDamage() { return damage;}
     public String getEffect() { return effect;}
 
     //Display attack details
