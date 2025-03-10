@@ -1,29 +1,40 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 public class Main {
     public static void main(String[] args){
-
-        Window window = new Window(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, Constants.SCREEN_TITLE);
-
-        Thread thread = new Thread(window);
-        thread.start();
-
-
-
-
-        Attack attack1 = new Attack("Quick Strike", 20, "None");
-        Attack attack2 = new Attack("Heavy Slam", 80, "User Attacks second in the next turn");
-
-
-        // Assign moves to characters
-        Attack[] moves1 = {attack1, attack2};
-        Attack[] moves2 = {attack2, attack1};
-
-        // Create characters
-        Character char1 = new Character("Blaze", 100, 80, 50, 70, moves1);
-        Character char2 = new Character("Frost", 100, 60, 70, 80, moves2);
-
-        //Start
-        Battle battle = new Battle(char1, char2);
-        battle.startBattle();
+        SwingUtilities.invokeLater(() -> {
+            new MainMenu();
+        });
     }
-    
+}
+
+class MainMenu extends JFrame{
+    public MainMenu(){
+        setTitle("TriBattle");
+        setSize(600, 400);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setResizable(false);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBackground(Color.WHITE);
+
+        JLabel titleLabel = new JLabel("TriBattle Game Menu", SwingConstants.CENTER);
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 28));
+        titleLabel.setForeground(Color.BLACK);
+
+
+        JButton exitButton = createMenuButton("Exit");
+
+
+    }
+
+    private JButton createMenuButton(String text){
+        JButton button = new JButton(text);
+        return button;
+    }
+
 }
