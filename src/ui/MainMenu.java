@@ -16,6 +16,10 @@ public class MainMenu extends JFrame {
         JButton optionsButton = new JButton("Options");    
         JButton exitButton = new JButton("Exit");
 
+        startButton.addActionListener(e -> {
+            System.out.println("Starting game...");
+            dispose();
+        });
         exitButton.addActionListener(e -> System.exit(0));
 
         add(startButton);
