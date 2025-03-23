@@ -3,12 +3,12 @@ import moves.*;
 import java.util.List;
 import java.util.ArrayList;
 
-public abstract class character {
+public abstract class Character {
     protected String name;
     protected int health;
     protected List<Move> moves;
 
-    public void Character(String name, int health){
+    public Character(String name, int health){
         this.name = name;
         this.health = health;
         this.moves = new ArrayList<>();
@@ -36,6 +36,10 @@ public abstract class character {
     }
     public boolean isAlive(){
         return health >0;
+    }
+
+    public String getName(){
+        return name;
     }
     
 }
