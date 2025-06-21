@@ -1,52 +1,65 @@
 package ui;
 
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.plaf.basic.BasicArrowButton;
 
 class MyFrame extends JFrame{
 
+    private BufferedImage backgroundImage;
+    private Font customFont;
+
     JLabel l;
     JButton b1,b2,b3,b4,b5,b6;
 
     MyFrame(){
-        super("Battle Game");
+        //Load Font
+        loadCustomFont("/fonts/Kranky-Regular.ttf", 22f);
 
-        ImageIcon backgroundIcon = new ImageIcon("img.jpeg");
+        //Load Image
+        try{
+            backgroundImage = ImageIO.read(new File("background.jpg"));
+        } catch (Exception e){
+            e.printStackTrace();
+        }
 
-        JPanel backgroundPanel = new JPanel(){
-            @Override
-            protected void paintComponent(Graphics g){
-                super.paintComponent(g);
-                g.drawImage(backgroundIcon.getImage(), 0, 0, getWidth(), getHeight(), this);
-            }
-        };
+        //Setting Layout Manager
+        setContentPane(new BackgroundPanel());
+        setLayout(null);
 
-        b1 = new JButton("TRIBATTLE");
-        b1.setPreferredSize(new Dimension(0,150));
-        backgroundPanel.add(b1, BorderLayout.NORTH); 
+        //Create Panel for Buttons
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setOpaque(false);
+        buttonPanel.setLayout(new GridBagLayout());
 
-        b2 = new JButton("Two");
-        b2.setPreferredSize(new Dimension(0,100));
-        backgroundPanel.add(b2, BorderLayout.SOUTH);  
+        JButton playButton = new JButton("PLAY");
+        JButton optionsButton = new JButton("OPTIONS");
+        JButton exitButton = new JButton("EXIT");
 
-        b3 = new JButton("Three");
-        b3.setPreferredSize(new Dimension(150,0));
-        backgroundPanel.add(b3, BorderLayout.WEST); 
+        for(JButton btn : new JButton[] {playButton, optionsButton, exitButton}) {
+            btn.setContentAreaFilled(false);
+            btn.setBorderPainted(false);
+            btn.setFocusPainted(false);
+            btn.setOpaque(false);
+            btn.setForeground(Color.WHITE);
+            bnt.set
+        }
 
-        b4 = new JButton("Four");  
-        b4.setPreferredSize(new Dimension(150,0));
-        backgroundPanel.add(b4, BorderLayout.EAST);   
-        
-        Panel p = new Panel();
-        p.setLayout(new GridLayout(3,1));
-        p.add(new Button("mon"));
-        p.add(new Button("mon"));
-        p.add(new Button("mon"));
-        add(p, BorderLayout.CENTER);
+    }
 
-        setContentPane(backgroundPanel);
+    private void loadCustomFont(String path, float size){
+        try{
+            InputStream is = getClass()
+        }
+    }
+
+    class BackgroundPanel extends JPanel{
+
     }
 }
 
