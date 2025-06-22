@@ -14,12 +14,9 @@ class MyFrame extends JFrame{
     private BufferedImage backgroundImage;
     private Font customFont;
 
-    JLabel l;
-    JButton b1,b2,b3,b4,b5,b6;
-
     MyFrame(){
         //Load Font
-        loadCustomFont("/fonts/Kranky-Regular.ttf", 22f);
+        loadCustomFont("/fonts/Kranky-Regular.ttf", 32f);
 
         //Load Image
         try{
@@ -37,29 +34,59 @@ class MyFrame extends JFrame{
         buttonPanel.setOpaque(false);
         buttonPanel.setLayout(new GridBagLayout());
 
-        JButton playButton = new JButton("PLAY");
-        JButton optionsButton = new JButton("OPTIONS");
-        JButton exitButton = new JButton("EXIT");
+        JButton playButton = createTextButton("PLAY", 200);
+        JButton optionsButton = createTextButton("OPTIONS", 270);
+        JButton exitButton = createTextButton("EXIT", 340);
 
-        for(JButton btn : new JButton[] {playButton, optionsButton, exitButton}) {
-            btn.setContentAreaFilled(false);
-            btn.setBorderPainted(false);
-            btn.setFocusPainted(false);
-            btn.setOpaque(false);
-            btn.setForeground(Color.WHITE);
-            bnt.set
-        }
+        add(playButton);
+        add(optionsButton);
+        add(exitButton);
 
     }
 
     private void loadCustomFont(String path, float size){
         try{
-            InputStream is = getClass()
+            File fontfile = new File(path);
+            customFont = Font.createFont(Font.TRUETYPE_FONT, fontfile).deriveFont(size);
+            GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(customFont);
+        } catch (Exception e){
+            customFont = new Font("Serif", Font.PLAIN, (int) size);
         }
     }
 
-    class BackgroundPanel extends JPanel{
+    private JButton createTextButton(String text, int y){
+        JButton btn = new JButton(text);
+        int x = (int) (getWidth() * 0.2);
+        btn.setBounds(200, y, 200, 40);
+        btn.setFont(customFont);
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setOpaque(false);
+        btn.setForeground(Color.WHITE);
 
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt){
+                btn.setForeground(Color.YELLOW);
+            } 
+
+            public void mouseExited(java.awt.event.MouseEvent evt){
+                btn.setForeground(Color.YELLOW);
+            }
+        });
+
+        return btn;
+
+    }
+
+    class BackgroundPanel extends JPanel {
+        @Override
+        protected void paintComponent(Graphics g){
+            super.paintComponent(g);
+            if (backgroundImage != null){
+                g.drawImage(backgroundImage, 0, 0, getWidth(), getHeight(), this);
+            }
+        }
     }
 }
 
