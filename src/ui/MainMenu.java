@@ -3,6 +3,8 @@ package ui;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.InputStream;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 
@@ -27,10 +29,18 @@ class MyFrame extends JFrame {
         setContentPane(new BackgroundPanel());
         setLayout(null);
 
+        //Label for Title
+
+        JLabel title = new JLabel("SHOWDOWN");
+        title.setFont(customFont.deriveFont(78f));
+        title.setForeground(Color.WHITE);
+        title.setBounds(150,150,600,70);
+        add(title);
+
         // Create and add buttons
-        JButton playButton = createTextButton("PLAY", 200);
-        JButton optionsButton = createTextButton("OPTIONS", 270);
-        JButton exitButton = createTextButton("EXIT", 340);
+        JButton playButton = createTextButton("PLAY", 340);
+        JButton optionsButton = createTextButton("OPTIONS", 440);
+        JButton exitButton = createTextButton("EXIT", 540);
 
         add(playButton);
         add(optionsButton);
@@ -38,25 +48,20 @@ class MyFrame extends JFrame {
     }
 
     private void loadCustomFont(String path, float size) {
-        try {
-            File fontFile = new File(path);
-            customFont = Font.createFont(Font.TRUETYPE_FONT, fontFile).deriveFont(size);
-            GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(customFont);
-        } catch (Exception e) {
-            System.err.println("Font load failed. Using default.");
-            customFont = new Font("Serif", Font.PLAIN, (int) size);
+        try (InputStream is = getClass().getResourceAsStream("/ui/fonts/Kranky-Regular.ttf")){
+                customFont = Font.createFont(Font.TRUETYPE_FONT, is).deriveFont(size);
+                GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(customFont);
+            } catch (Exception e) {
+                System.err.println("Font load failed. Using default.");
+                customFont = new Font("Serif", Font.PLAIN, (int) size);
         }
     }
 
     private JButton createTextButton(String text, int y) {
         JButton btn = new JButton(text);
 
-        // Get screen size to calculate 20% x-position
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        int x = (int) (screenSize.width * 0.2);
-
-        btn.setBounds(x, y, 200, 40);
-        btn.setFont(customFont);
+        btn.setBounds(200, y, 300, 60);
+        btn.setFont(customFont.deriveFont(50f));
         btn.setContentAreaFilled(false);
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
