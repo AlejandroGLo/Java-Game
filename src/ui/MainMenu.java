@@ -34,9 +34,11 @@ class MyFrame extends JFrame {
         // Create and add panels
         JPanel menuPanel = createMainMenuPanel();
         JPanel optionsPanel = createOptionsPanel();
+        JPanel quitPanel = createQuitPanel();
 
         mainPanel.add(menuPanel, "menu");
         mainPanel.add(optionsPanel, "options");
+        mainPanel.add(quitPanel, "quit");
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -70,7 +72,7 @@ class MyFrame extends JFrame {
         // Add listeners
         playButton.addActionListener(e -> System.out.println("Start Game (not implemented)"));
         optionsButton.addActionListener(e -> cardLayout.show(mainPanel, "options"));
-        exitButton.addActionListener(e -> showExitDialog());
+        exitButton.addActionListener(e -> cardLayout.show(mainPanel, "quit"));
 
         panel.add(playButton);
         panel.add(optionsButton);
@@ -97,6 +99,30 @@ class MyFrame extends JFrame {
         return panel;
     }
 
+    private JPanel createQuitPanel(){
+        JPanel panel = new JPanel();
+        panel.setLayout(null);
+        panel.setBackground(Color.BLACK);
+
+        JLabel label = new JLabel("Are you sure you want to quit?");
+        label.setFont(customFont.deriveFont(48f));
+        label.setForeground(Color.WHITE);
+        label.setBounds(150,200,800,60);
+        panel.add(label);
+
+        JButton confirmExit = createTextButton("EXIT", 300);
+        JButton cancelExit = createTextButton("CANCEL", 400);
+
+        confirmExit.addActionListener(e -> System.exit(0));
+        cancelExit.addActionListener(e -> cardLayout.show(mainPanel, "menu"));
+
+        panel.add(confirmExit);
+        panel.add(cancelExit);
+
+        return panel;
+
+    }
+
     private JButton createTextButton(String text, int y) {
         JButton btn = new JButton(text);
         btn.setBounds(200, y, 300, 60);
@@ -118,23 +144,6 @@ class MyFrame extends JFrame {
         });
 
         return btn;
-    }
-
-    private void showExitDialog() {
-        int result = JOptionPane.showOptionDialog(
-                this,
-                "Are you sure you want to exit?",
-                "Confirm Exit",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE,
-                null,
-                new String[]{"Exit", "Cancel"},
-                "Cancel"
-        );
-
-        if (result == JOptionPane.YES_OPTION) {
-            System.exit(0);
-        }
     }
 
     class BackgroundPanel extends JPanel {
