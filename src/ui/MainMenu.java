@@ -1,16 +1,22 @@
 package ui;
 
+import characters.Character;
+import game.GamePanel;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
+import java.util.List;
 
 class MyFrame extends JFrame {
     private BufferedImage backgroundImage;
     private Font customFont;
     private CardLayout cardLayout;
     private JPanel mainPanel;
+    private JLabel victoryLabel;
+    private GamePanel gamePanel;
 
     MyFrame() {
         loadCustomFont("/ui/fonts/Kranky-Regular.ttf", 32f);
@@ -35,14 +41,51 @@ class MyFrame extends JFrame {
         JPanel menuPanel = createMainMenuPanel();
         JPanel optionsPanel = createOptionsPanel();
         JPanel quitPanel = createQuitPanel();
+        ClassSelectPanel classSelectPanel = new ClassSelectPanel(customFont, this::startBattle, () -> cardLayout.show(mainPanel, "menu"));
+        JPanel victoryPanel = createVictoryPanel();
 
         mainPanel.add(menuPanel, "menu");
         mainPanel.add(optionsPanel, "options");
         mainPanel.add(quitPanel, "quit");
+        mainPanel.add(classSelectPanel, "classSelect");
+        mainPanel.add(victoryPanel, "victory");
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setVisible(true);
+    }
+
+    private void startBattle(List<Character> roster) {
+        if (gamePanel != null) {
+            mainPanel.remove(gamePanel);
+        }
+        gamePanel = new GamePanel(roster, this::onBattleOver, () -> cardLayout.show(mainPanel, "menu"));
+        mainPanel.add(gamePanel, "battle");
+        cardLayout.show(mainPanel, "battle");
+        SwingUtilities.invokeLater(() -> gamePanel.requestFocusOnBattle());
+    }
+
+    private void onBattleOver(String winnerMessage) {
+        victoryLabel.setText(winnerMessage);
+        cardLayout.show(mainPanel, "victory");
+    }
+
+    private JPanel createVictoryPanel() {
+        JPanel panel = new JPanel();
+        panel.setLayout(null);
+        panel.setBackground(Color.BLACK);
+
+        victoryLabel = new JLabel("");
+        victoryLabel.setFont(customFont.deriveFont(52f));
+        victoryLabel.setForeground(Color.WHITE);
+        victoryLabel.setBounds(100, 220, 900, 70);
+        panel.add(victoryLabel);
+
+        JButton menuButton = createTextButton("MAIN MENU", 340);
+        menuButton.addActionListener(e -> cardLayout.show(mainPanel, "menu"));
+        panel.add(menuButton);
+
+        return panel;
     }
 
     private void loadCustomFont(String path, float size) {
@@ -70,7 +113,7 @@ class MyFrame extends JFrame {
         JButton exitButton = createTextButton("EXIT", 540);
 
         // Add listeners
-        playButton.addActionListener(e -> System.out.println("Start Game (not implemented)"));
+        playButton.addActionListener(e -> cardLayout.show(mainPanel, "classSelect"));
         optionsButton.addActionListener(e -> cardLayout.show(mainPanel, "options"));
         exitButton.addActionListener(e -> cardLayout.show(mainPanel, "quit"));
 
