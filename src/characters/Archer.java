@@ -1,6 +1,13 @@
 package characters;
 
 import game.BattleContext;
+import attacks.AttackIcons;
+import attacks.AttackRange;
+import attacks.Inventory;
+import attacks.ProjectileAttack;
+import attacks.SpecialAttack;
+import game.CharacterClass;
+import game.GameConfig;
 import moves.Ability;
 import moves.Move;
 
@@ -14,9 +21,24 @@ public class Archer extends Character {
         super(name, playerId, 90, new Color(70, 160, 90));
     }
 
+
     @Override
-    public String getClassLabel() {
-        return "Archer";
+    protected Inventory createInventory() {
+        return new Inventory(
+                new ProjectileAttack("Arrow Shot",
+                        "A single fast arrow on a flat arc. Precise, with almost no splash.",
+                        PRIMARY, AttackRange.LONG, AttackIcons.Kind.ARROW),
+                new ProjectileAttack("Volley",
+                        "Looses three arrows in a spread. Close up several can land at once.",
+                        PRIMARY, AttackRange.MEDIUM, AttackIcons.Kind.ARROW, 3, 28),
+                new SpecialAttack("Burning Arrow",
+                        "Sets the next arrow alight, burning whatever it hits.",
+                        0, AttackRange.LONG, AttackIcons.Kind.FIREBALL, GameConfig.SPECIAL_MAX_USES));
+    }
+
+    @Override
+    public CharacterClass getCharacterClass() {
+        return CharacterClass.ARCHER;
     }
 
     @Override

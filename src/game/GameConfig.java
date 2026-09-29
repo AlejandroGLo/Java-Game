@@ -125,4 +125,42 @@ public final class GameConfig {
     public static final int DUST_ON_LANDING = 6;
     public static final int DUST_ON_TURN = 3;
     public static final double DUST_SPEED = 70.0;
+
+    // ---- Character select screen -----------------------------------------
+
+    /** Idle "breathing" loop on each portrait. */
+    public static final double SELECT_BREATH_SPEED = 2.4;   // radians/s
+    public static final double SELECT_BREATH_SCALE = 0.035; // +/- 3.5% vertical squash
+    public static final double SELECT_BREATH_BOB = 1.6;     // grid units of bob
+    /** Each slot is offset along the wave so the six portraits don't breathe in unison. */
+    public static final double SELECT_BREATH_SLOT_OFFSET = 0.9;
+
+    /** Pop-in played when a slot's character changes. */
+    public static final double SELECT_POP_SECONDS = 0.28;
+    public static final double SELECT_POP_START_SCALE = 0.8;
+    public static final double SELECT_POP_OVERSHOOT = 1.9;
+
+    // ---- Character body sizes --------------------------------------------
+
+    /** Collision box for a normal character. */
+    public static final int BODY_WIDTH = 30;
+    public static final int BODY_HEIGHT = 46;
+    /** Tanks (Orc) are visibly bulkier and occupy a larger box. */
+    public static final int TANK_BODY_WIDTH = 38;
+    public static final int TANK_BODY_HEIGHT = 56;
+
+    /** Drawn in place of a sprite that failed to build, so nothing is ever invisible. */
+    public static final boolean SPRITE_PLACEHOLDER_ENABLED = true;
+
+    // ---- Inventory / attack menu -----------------------------------------
+
+    /** Uses per match for a character's special. */
+    public static final int SPECIAL_MAX_USES = 1;
+    /** Freeze the turn clock while the inventory menu is open. */
+    public static final boolean INVENTORY_PAUSES_TURN_TIMER = false;
+
+    public static final int MENU_SLOT_WIDTH = 250;
+    public static final int MENU_SLOT_HEIGHT = 250;
+    public static final int MENU_SLOT_GAP = 22;
+    public static final int MENU_ICON_SIZE = 62;
 }

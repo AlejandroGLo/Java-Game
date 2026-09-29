@@ -4,22 +4,30 @@ import characters.Archer;
 import characters.Character;
 import characters.Knight;
 import characters.Ninja;
+import characters.Orc;
 import characters.Wizard;
 
 public enum CharacterClass {
-    KNIGHT("Knight"),
-    WIZARD("Wizard"),
-    ARCHER("Archer"),
-    NINJA("Ninja");
+    KNIGHT("Knight", Archetype.STANDARD),
+    WIZARD("Wizard", Archetype.LIGHT),
+    ARCHER("Archer", Archetype.LIGHT),
+    NINJA("Ninja", Archetype.LIGHT),
+    ORC("Orc", Archetype.TANK);
 
     private final String label;
+    private final Archetype archetype;
 
-    CharacterClass(String label) {
+    CharacterClass(String label, Archetype archetype) {
         this.label = label;
+        this.archetype = archetype;
     }
 
     public String getLabel() {
         return label;
+    }
+
+    public Archetype getArchetype() {
+        return archetype;
     }
 
     public Character create(String name, int playerId) {
@@ -32,8 +40,15 @@ public enum CharacterClass {
                 return new Archer(name, playerId);
             case NINJA:
                 return new Ninja(name, playerId);
+            case ORC:
+                return new Orc(name, playerId);
             default:
                 throw new IllegalStateException("Unknown class: " + this);
         }
+    }
+
+    /** The default name shown for a pick, e.g. "P1 Knight". */
+    public String defaultName(int playerId) {
+        return "P" + playerId + " " + label;
     }
 }

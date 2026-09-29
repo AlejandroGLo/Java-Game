@@ -1,6 +1,13 @@
 package characters;
 
 import game.BattleContext;
+import attacks.AttackIcons;
+import attacks.AttackRange;
+import attacks.Inventory;
+import attacks.ProjectileAttack;
+import attacks.SpecialAttack;
+import game.CharacterClass;
+import game.GameConfig;
 import moves.Ability;
 import moves.Move;
 
@@ -15,9 +22,26 @@ public class Wizard extends Character {
         super(name, playerId, 95, new Color(130, 80, 210));
     }
 
+
+    private static final Move BOLT = new Move("Arcane Bolt", 15, 14, 14, 0.75);
+
     @Override
-    public String getClassLabel() {
-        return "Wizard";
+    protected Inventory createInventory() {
+        return new Inventory(
+                new ProjectileAttack("Fireball",
+                        "A slow orb of flame that bursts on impact, damaging everything nearby.",
+                        PRIMARY, AttackRange.MEDIUM, AttackIcons.Kind.FIREBALL),
+                new ProjectileAttack("Arcane Bolt",
+                        "A fast, flat bolt of energy. Less damage than the fireball but far easier to aim.",
+                        BOLT, AttackRange.LONG, AttackIcons.Kind.BOLT),
+                new SpecialAttack("Blink",
+                        "Teleports the wizard a short distance in the direction it is facing.",
+                        0, AttackRange.SHORT, AttackIcons.Kind.TELEPORT, GameConfig.SPECIAL_MAX_USES));
+    }
+
+    @Override
+    public CharacterClass getCharacterClass() {
+        return CharacterClass.WIZARD;
     }
 
     @Override
@@ -34,7 +58,7 @@ public class Wizard extends Character {
     public void useSpecialAbility(BattleContext context, double aimAngleDegrees, double power) {
         double dir = isFacingRight() ? 1 : -1;
         double newX = getX() + dir * BLINK_DISTANCE;
-        newX = Math.max(0, Math.min(context.getWorldWidth() - WIDTH, newX));
+        newX = Math.max(0, Math.min(context.getWorldWidth() - getWidth(), newX));
         setPosition(newX, getY());
         setVy(0);
         context.log(getName() + " blinks away!");

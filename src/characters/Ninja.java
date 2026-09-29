@@ -1,6 +1,13 @@
 package characters;
 
 import game.BattleContext;
+import attacks.AttackIcons;
+import attacks.AttackRange;
+import attacks.Inventory;
+import attacks.ProjectileAttack;
+import attacks.SpecialAttack;
+import game.CharacterClass;
+import game.GameConfig;
 import moves.Ability;
 import moves.Move;
 
@@ -15,9 +22,24 @@ public class Ninja extends Character {
         super(name, playerId, 80, new Color(70, 70, 75));
     }
 
+
     @Override
-    public String getClassLabel() {
-        return "Ninja";
+    protected Inventory createInventory() {
+        return new Inventory(
+                new ProjectileAttack("Shuriken",
+                        "A single spinning star. Quick and accurate, but light on damage.",
+                        PRIMARY, AttackRange.MEDIUM, AttackIcons.Kind.SHURIKEN),
+                new ProjectileAttack("Shuriken Volley",
+                        "Throws five stars in a fan. Devastating up close, unreliable at range.",
+                        PRIMARY, AttackRange.SHORT, AttackIcons.Kind.SHURIKEN, 5, 34),
+                new SpecialAttack("Shadow Dash",
+                        "Dashes forward in a blur to break away from danger.",
+                        0, AttackRange.SHORT, AttackIcons.Kind.TELEPORT, GameConfig.SPECIAL_MAX_USES));
+    }
+
+    @Override
+    public CharacterClass getCharacterClass() {
+        return CharacterClass.NINJA;
     }
 
     @Override

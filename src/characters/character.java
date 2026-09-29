@@ -1,18 +1,21 @@
 package characters;
 
 import game.BattleContext;
+import game.CharacterClass;
+import attacks.Inventory;
+import game.GameConfig;
 import moves.Ability;
 import moves.Move;
 
 import java.awt.Color;
 
 public abstract class Character {
-    public static final int WIDTH = 30;
-    public static final int HEIGHT = 46;
 
     protected final String name;
     protected final int playerId;
     protected final int maxHealth;
+    protected final int width;
+    protected final int height;
     protected int health;
     protected double x, y;
     protected double vx, vy;
@@ -20,17 +23,41 @@ public abstract class Character {
     protected boolean facingRight;
     protected boolean shielded;
     protected final Color color;
+    private Inventory inventory;
 
     protected Character(String name, int playerId, int maxHealth, Color color) {
+        this(name, playerId, maxHealth, color, GameConfig.BODY_WIDTH, GameConfig.BODY_HEIGHT);
+    }
+
+    protected Character(String name, int playerId, int maxHealth, Color color, int width, int height) {
         this.name = name;
         this.playerId = playerId;
         this.maxHealth = maxHealth;
         this.health = maxHealth;
         this.color = color;
+        this.width = width;
+        this.height = height;
         this.facingRight = playerId == 1;
     }
 
-    public abstract String getClassLabel();
+    /**
+     * Identity of this character. Sprites, archetype and the display label are all
+     * derived from this, so there is a single source of truth: a new character
+     * cannot be added without the compiler forcing this to be answered.
+     */
+    public abstract CharacterClass getCharacterClass();
+
+    public final String getClassLabel() {
+        return getCharacterClass().getLabel();
+    }
+
+    /** Built lazily: subclass fields must be initialised before this runs. */
+    public final Inventory getInventory() {
+        if (inventory == null) inventory = createInventory();
+        return inventory;
+    }
+
+    protected abstract Inventory createInventory();
 
     public abstract Move getPrimaryMove();
 
@@ -62,6 +89,15 @@ public abstract class Character {
 
     public int getMaxHealth() {
         return maxHealth;
+    }
+
+    /** Collision box width. Tanks are bulkier than everyone else. */
+    public int getWidth() {
+        return width;
+    }
+
+    public int getHeight() {
+        return height;
     }
 
     public double getX() {

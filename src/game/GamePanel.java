@@ -1,5 +1,7 @@
 package game;
 
+import attacks.Attack;
+import attacks.Inventory;
 import characters.Character;
 import moves.Move;
 
@@ -9,6 +11,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,7 +35,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
     private final List<Rectangle> obstacles = new ArrayList<>();
     private final Timer timer;
     private final Set<Integer> pressed = new HashSet<>();
-    private final Map<String, CharacterSprite> sprites = new HashMap<>();
     private final Map<Character, Animator> animators = new HashMap<>();
 
     private double worldWidth = 1200;
@@ -41,6 +44,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
     private boolean turnLocked = false;
     private boolean charging = false;
     private boolean paused = false;
+    private boolean inventoryOpen = false;
+    private int menuCursor = 0;
+    private Point menuMouse = new Point(-1, -1);
+    private final Rectangle[] menuSlotRect = {new Rectangle(), new Rectangle(), new Rectangle()};
     private int turnIndex = 0;
     private double turnTimeLeft;
     private double postActionTime;
@@ -76,10 +83,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         this.turnOrder = buildTurnOrder(this.allCharacters);
         this.turnTimeLeft = GameConfig.TURN_SECONDS;
 
-        sprites.put("Knight", SpriteFactory.knight());
-        sprites.put("Wizard", SpriteFactory.wizard());
-        sprites.put("Archer", SpriteFactory.archer());
-        sprites.put("Ninja", SpriteFactory.ninja());
         for (Character c : allCharacters) {
             animators.put(c, new Animator());
         }
@@ -87,6 +90,26 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         setPreferredSize(new Dimension(1200, 700));
         setFocusable(true);
         addKeyListener(this);
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                requestFocusInWindow();
+                if (!inventoryOpen) return;
+                for (int i = 0; i < Inventory.SLOTS; i++) {
+                    if (menuSlotRect[i].contains(e.getPoint())) {
+                        menuCursor = i;
+                        confirmSlot(i);
+                        return;
+                    }
+                }
+            }
+        });
+        addMouseMotionListener(new MouseAdapter() {
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                menuMouse = e.getPoint();
+            }
+        });
 
         lastNanos = System.nanoTime();
         timer = new Timer(GameConfig.FRAME_DELAY_MS, this);
@@ -187,10 +210,14 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         obstacles.add(new Rectangle(w / 2 - 25, gy - 110, 50, 110));
     }
 
-    private Rectangle obstacleAt(double x, double y) {
+    private Rectangle obstacleAt(double x, double y, Character c) {
+        return obstacleAt(x, y, c.getWidth(), c.getHeight());
+    }
+
+    private Rectangle obstacleAt(double x, double y, int boxW, int boxH) {
         for (Rectangle r : obstacles) {
-            if (x < r.x + r.width && x + Character.WIDTH > r.x
-                    && y < r.y + r.height && y + Character.HEIGHT > r.y) {
+            if (x < r.x + r.width && x + boxW > r.x
+                    && y < r.y + r.height && y + boxH > r.y) {
                 return r;
             }
         }
@@ -203,12 +230,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         for (Character c : allCharacters) {
             if (c.getPlayerId() == 1) {
                 double fx = worldWidth * (0.12 + 0.10 * i1);
-                c.setPosition(fx, groundY - Character.HEIGHT);
+                c.setPosition(fx, groundY - c.getHeight());
                 c.setFacingRight(true);
                 i1++;
             } else {
-                double fx = worldWidth * (0.88 - 0.10 * i2) - Character.WIDTH;
-                c.setPosition(fx, groundY - Character.HEIGHT);
+                double fx = worldWidth * (0.88 - 0.10 * i2) - c.getWidth();
+                c.setPosition(fx, groundY - c.getHeight());
                 c.setFacingRight(false);
                 i2++;
             }
@@ -223,6 +250,13 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
     private void handleActiveInput(double dt) {
         Character active = getActive();
         if (active == null || !active.isAlive()) return;
+
+        // While the menu is open the character can neither move nor attack.
+        if (inventoryOpen) {
+            active.setVx(approach(active.getVx(), 0, GameConfig.GROUND_FRICTION * dt));
+            if (!GameConfig.INVENTORY_PAUSES_TURN_TIMER) tickTurnClock(active, dt);
+            return;
+        }
 
         double dx = 0;
         if (pressed.contains(KeyEvent.VK_LEFT) || pressed.contains(KeyEvent.VK_A)) {
@@ -256,6 +290,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
             power = Math.min(GameConfig.MAX_POWER, power + GameConfig.CHARGE_RATE * dt);
         }
 
+        tickTurnClock(active, dt);
+    }
+
+    private void tickTurnClock(Character active, double dt) {
         turnTimeLeft -= dt;
         if (turnTimeLeft <= 0) {
             log(active.getName() + "'s turn timed out!");
@@ -274,19 +312,19 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
 
             double x = c.getX(), y = c.getY();
 
-            Rectangle stuck = obstacleAt(x, y);
+            Rectangle stuck = obstacleAt(x, y, c);
             if (stuck != null) {
-                y = stuck.y - Character.HEIGHT;
+                y = stuck.y - c.getHeight();
                 c.setVy(0);
             }
 
             c.setVy(c.getVy() + GameConfig.GRAVITY * dt);
 
-            double nx = Math.max(0, Math.min(worldWidth - Character.WIDTH, x + c.getVx() * dt));
-            Rectangle wall = obstacleAt(nx, y);
+            double nx = Math.max(0, Math.min(worldWidth - c.getWidth(), x + c.getVx() * dt));
+            Rectangle wall = obstacleAt(nx, y, c);
             if (wall != null) {
-                double stepTop = wall.y - Character.HEIGHT;
-                if (y - stepTop <= GameConfig.STEP_HEIGHT && obstacleAt(nx, stepTop) == null) {
+                double stepTop = wall.y - c.getHeight();
+                if (y - stepTop <= GameConfig.STEP_HEIGHT && obstacleAt(nx, stepTop, c) == null) {
                     y = stepTop;
                 } else {
                     nx = x;
@@ -297,17 +335,17 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
 
             double ny = y + c.getVy() * dt;
             boolean grounded = false;
-            Rectangle surface = obstacleAt(x, ny);
+            Rectangle surface = obstacleAt(x, ny, c);
             if (surface != null) {
                 if (c.getVy() > 0) {
-                    ny = surface.y - Character.HEIGHT;
+                    ny = surface.y - c.getHeight();
                     grounded = true;
                 } else {
                     ny = surface.y + surface.height;
                 }
                 c.setVy(0);
-            } else if (ny + Character.HEIGHT >= groundY) {
-                ny = groundY - Character.HEIGHT;
+            } else if (ny + c.getHeight() >= groundY) {
+                ny = groundY - c.getHeight();
                 c.setVy(0);
                 grounded = true;
             }
@@ -337,11 +375,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
     }
 
     private void spawnDust(Character c, int count, double bias) {
-        double cx = c.getX() + Character.WIDTH / 2.0;
-        double feet = c.getY() + Character.HEIGHT;
+        double cx = c.getX() + c.getWidth() / 2.0;
+        double feet = c.getY() + c.getHeight();
         for (int i = 0; i < count; i++) {
             Dust d = new Dust();
-            d.x = cx + (Math.random() - 0.5) * Character.WIDTH;
+            d.x = cx + (Math.random() - 0.5) * c.getWidth();
             d.y = feet - 2;
             double dir = bias != 0 ? bias : (Math.random() < 0.5 ? -1 : 1);
             d.vx = dir * Math.random() * GameConfig.DUST_SPEED;
@@ -366,8 +404,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
             Character hitChar = null;
             for (Character c : allCharacters) {
                 if (!c.isAlive() || c == p.owner) continue;
-                double cx = c.getX() + Character.WIDTH / 2.0;
-                double cy = c.getY() + Character.HEIGHT / 2.0;
+                double cx = c.getX() + c.getWidth() / 2.0;
+                double cy = c.getY() + c.getHeight() / 2.0;
                 if (Math.hypot(p.x - cx, p.y - cy) < GameConfig.HIT_RADIUS) {
                     hitChar = c;
                     break;
@@ -402,8 +440,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         for (Character c : allCharacters) {
             if (!c.isAlive()) continue;
             if (!GameConfig.FRIENDLY_FIRE && c.getPlayerId() == p.owner.getPlayerId()) continue;
-            double cx = c.getX() + Character.WIDTH / 2.0;
-            double cy = c.getY() + Character.HEIGHT / 2.0;
+            double cx = c.getX() + c.getWidth() / 2.0;
+            double cy = c.getY() + c.getHeight() / 2.0;
             double dist = Math.hypot(x - cx, y - cy);
             if (dist < radius) {
                 double falloff = 1.0 - (dist / radius);
@@ -433,8 +471,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         double dirY = p.vy;
         double len = Math.hypot(dirX, dirY);
         if (len < 1) {
-            dirX = (c.getX() + Character.WIDTH / 2.0) - x;
-            dirY = (c.getY() + Character.HEIGHT / 2.0) - y;
+            dirX = (c.getX() + c.getWidth() / 2.0) - x;
+            dirY = (c.getY() + c.getHeight() / 2.0) - y;
             len = Math.max(1, Math.hypot(dirX, dirY));
         }
         c.setVx(c.getVx() + dirX / len * GameConfig.KNOCKBACK_SPEED);
@@ -494,8 +532,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         aimAngle = 30;
         power = 0;
         charging = false;
+        inventoryOpen = false;
         turnTimeLeft = GameConfig.TURN_SECONDS;
         turnLocked = false;
+
+        Character next = getActive();
+        if (next != null) next.getInventory().resetForTurn();
     }
 
     // ---- Input ----
@@ -505,6 +547,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         int code = e.getKeyCode();
         boolean firstPress = !pressed.contains(code);
         pressed.add(code);
+
+        // The menu owns Esc while it is open, so it closes rather than pausing.
+        if (inventoryOpen) {
+            if (firstPress) handleInventoryKey(code);
+            return;
+        }
         if (initialized && !gameOver && firstPress && (code == KeyEvent.VK_ESCAPE || code == KeyEvent.VK_P)) {
             paused = !paused;
             pressed.clear();
@@ -517,6 +565,14 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         }
         if (turnLocked || !initialized || gameOver) return;
 
+        if (firstPress && code == KeyEvent.VK_E) {
+            openInventory();
+            return;
+        }
+        if (firstPress && code >= KeyEvent.VK_1 && code <= KeyEvent.VK_3) {
+            confirmSlot(code - KeyEvent.VK_1);
+            return;
+        }
         if (firstPress && code == KeyEvent.VK_SPACE) doJump();
         if (firstPress && code == KeyEvent.VK_G) doAbility();
     }
@@ -525,7 +581,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
     public void keyReleased(KeyEvent e) {
         int code = e.getKeyCode();
         pressed.remove(code);
-        if (code == KeyEvent.VK_F && charging && !turnLocked && !paused) {
+        if (code == KeyEvent.VK_F && charging && !turnLocked && !paused && !inventoryOpen) {
             doFire();
         }
     }
@@ -540,6 +596,64 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         if (onQuit != null) onQuit.run();
     }
 
+    private void openInventory() {
+        Character active = getActive();
+        if (active == null) return;
+        inventoryOpen = true;
+        menuCursor = active.getInventory().getSelectedSlot();
+        charging = false;
+        power = 0;
+        // Drop held keys so movement doesn't resume when the menu closes.
+        pressed.clear();
+    }
+
+    private void closeInventory() {
+        inventoryOpen = false;
+        pressed.clear();
+    }
+
+    private void handleInventoryKey(int code) {
+        switch (code) {
+            case KeyEvent.VK_ESCAPE:
+            case KeyEvent.VK_E:
+                closeInventory();
+                break;
+            case KeyEvent.VK_LEFT:
+            case KeyEvent.VK_A:
+                menuCursor = (menuCursor + Inventory.SLOTS - 1) % Inventory.SLOTS;
+                break;
+            case KeyEvent.VK_RIGHT:
+            case KeyEvent.VK_D:
+                menuCursor = (menuCursor + 1) % Inventory.SLOTS;
+                break;
+            case KeyEvent.VK_ENTER:
+            case KeyEvent.VK_SPACE:
+                confirmSlot(menuCursor);
+                break;
+            case KeyEvent.VK_1:
+            case KeyEvent.VK_2:
+            case KeyEvent.VK_3:
+                confirmSlot(code - KeyEvent.VK_1);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /** Selects a slot if it is still usable, then closes the menu. */
+    private void confirmSlot(int slot) {
+        Character active = getActive();
+        if (active == null || turnLocked) return;
+        Inventory inv = active.getInventory();
+        if (inv.select(slot)) {
+            log(active.getName() + " readies " + inv.getSelected().getName());
+            closeInventory();
+        } else {
+            Attack a = inv.get(slot);
+            log((a == null ? "That slot" : a.getName()) + " has no uses left!");
+        }
+    }
+
     private void doJump() {
         Character active = getActive();
         if (active != null && active.isOnGround()) {
@@ -552,28 +666,41 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         charging = false;
         Character active = getActive();
         if (active == null) return;
+        Inventory inv = active.getInventory();
+        int slot = inv.getSelectedSlot();
+        Attack attack = inv.getSelected();
+        if (attack == null || !inv.isUsable(slot)) return;
+
         double p = Math.max(power, GameConfig.MIN_FIRE_POWER);
-        spawnProjectile(active, active.getPrimaryMove(), aimAngle, p, 0);
+        attack.execute(this, active, aimAngle, p);
+        inv.consume(slot);
         anim(active).triggerAttack(aimAngle);
         applyRecoil(active);
         power = 0;
-        log(active.getName() + " fires " + active.getPrimaryMove().getName() + "!");
         beginTurnTransition();
     }
 
     private void applyRecoil(Character shooter) {
         double dir = shooter.isFacingRight() ? 1 : -1;
         shooter.setPosition(
-                Math.max(0, Math.min(worldWidth - Character.WIDTH,
+                Math.max(0, Math.min(worldWidth - shooter.getWidth(),
                         shooter.getX() - dir * GameConfig.RECOIL_PIXELS)),
                 shooter.getY());
     }
 
+    /** G remains a direct shortcut to the special, bypassing the menu. */
     private void doAbility() {
         Character active = getActive();
         if (active == null) return;
+        Inventory inv = active.getInventory();
+        if (!inv.isUsable(Inventory.SLOT_SPECIAL)) {
+            log(active.getName() + "'s special is used up!");
+            return;
+        }
+        inv.select(Inventory.SLOT_SPECIAL);
         double p = power > 0 ? power : 60;
-        active.useSpecialAbility(this, aimAngle, p);
+        inv.get(Inventory.SLOT_SPECIAL).execute(this, active, aimAngle, p);
+        inv.consume(Inventory.SLOT_SPECIAL);
         anim(active).triggerAttack(aimAngle);
         power = 0;
         charging = false;
@@ -619,9 +746,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
     /** Roughly where the weapon hand ends up once the attack pose has raised the arm. */
     private double[] handPosition(Character owner, double angleDegrees) {
         double dir = owner.isFacingRight() ? 1 : -1;
-        double shoulderX = owner.getX() + Character.WIDTH / 2.0 + dir * (Character.WIDTH * 0.32);
-        double shoulderY = owner.getY() + Character.HEIGHT * 0.30;
-        double reach = Character.HEIGHT * 0.38;
+        double shoulderX = owner.getX() + owner.getWidth() / 2.0 + dir * (owner.getWidth() * 0.32);
+        double shoulderY = owner.getY() + owner.getHeight() * 0.30;
+        double reach = owner.getHeight() * 0.38;
         double rad = Math.toRadians(angleDegrees);
         return new double[]{
                 shoulderX + dir * reach * Math.cos(rad),
@@ -691,6 +818,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         }
 
         drawHud(g);
+        drawSelectedAttack(g);
+
+        if (inventoryOpen) {
+            drawInventoryMenu(g);
+        }
 
         if (paused) {
             g.setColor(new Color(0, 0, 0, 170));
@@ -714,24 +846,26 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         if (!c.isAlive()) {
             g.setColor(Color.DARK_GRAY);
             g.setStroke(new BasicStroke(2));
-            g.drawLine(x, y, x + Character.WIDTH, y + Character.HEIGHT);
-            g.drawLine(x + Character.WIDTH, y, x, y + Character.HEIGHT);
+            g.drawLine(x, y, x + c.getWidth(), y + c.getHeight());
+            g.drawLine(x + c.getWidth(), y, x, y + c.getHeight());
             g.setStroke(new BasicStroke(1));
             return;
         }
 
         if (c.isShielded()) {
             g.setColor(new Color(120, 200, 255, 160));
-            g.fillOval(x - 6, y - 6, Character.WIDTH + 12, Character.HEIGHT + 12);
+            g.fillOval(x - 6, y - 6, c.getWidth() + 12, c.getHeight() + 12);
         }
 
-        CharacterSprite sprite = sprites.get(c.getClassLabel());
+        CharacterSprite sprite = Sprites.forCharacter(c);
         if (sprite != null) {
-            sprite.drawPosed(g, c.getX(), c.getY(), Character.WIDTH, Character.HEIGHT, c.isFacingRight(), anim(c));
+            sprite.drawPosed(g, c.getX(), c.getY(), c.getWidth(), c.getHeight(), c.isFacingRight(), anim(c));
+        } else if (GameConfig.SPRITE_PLACEHOLDER_ENABLED) {
+            drawSpritePlaceholder(g, c, x, y);
         }
 
         int barW = 50, barH = 6;
-        int bx = x + Character.WIDTH / 2 - barW / 2, by = y - 26;
+        int bx = x + c.getWidth() / 2 - barW / 2, by = y - 26;
         g.setColor(Color.RED.darker());
         g.fillRect(bx, by, barW, barH);
         g.setColor(Color.GREEN);
@@ -744,14 +878,186 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         FontMetrics fm2 = g.getFontMetrics();
         String label = c.getName();
         g.setColor(Color.WHITE);
-        g.drawString(label, x + Character.WIDTH / 2 - fm2.stringWidth(label) / 2, by - 4);
+        g.drawString(label, x + c.getWidth() / 2 - fm2.stringWidth(label) / 2, by - 4);
 
         if (active) {
-            int cx = x + Character.WIDTH / 2;
+            int cx = x + c.getWidth() / 2;
             int ty = by - 22;
             g.setColor(Color.YELLOW);
             g.fillPolygon(new int[]{cx - 8, cx + 8, cx}, new int[]{ty, ty, ty + 14}, 3);
         }
+    }
+
+    /** Loud stand-in so a missing sprite is obvious on screen rather than invisible. */
+    private void drawSpritePlaceholder(Graphics2D g, Character c, int x, int y) {
+        g.setColor(c.getColor());
+        g.fillRect(x, y, c.getWidth(), c.getHeight());
+        g.setColor(Color.MAGENTA);
+        g.setStroke(new BasicStroke(2));
+        g.drawRect(x, y, c.getWidth(), c.getHeight());
+        g.drawLine(x, y, x + c.getWidth(), y + c.getHeight());
+        g.setStroke(new BasicStroke(1));
+
+        g.setFont(new Font("SansSerif", Font.BOLD, 10));
+        String label = c.getClassLabel();
+        FontMetrics fm = g.getFontMetrics();
+        g.setColor(Color.WHITE);
+        g.drawString(label, x + c.getWidth() / 2 - fm.stringWidth(label) / 2,
+                y + c.getHeight() / 2 + 4);
+    }
+
+
+    /** Always-visible reminder of what pressing F will do. */
+    private void drawSelectedAttack(Graphics2D g) {
+        if (!initialized || gameOver) return;
+        Character active = getActive();
+        if (active == null || !active.isAlive()) return;
+        Inventory inv = active.getInventory();
+        Attack attack = inv.getSelected();
+        if (attack == null) return;
+
+        int pad = 10, icon = 30;
+        g.setFont(new Font("SansSerif", Font.BOLD, 15));
+        int textW = g.getFontMetrics().stringWidth(attack.getName());
+        int boxW = pad * 3 + icon + textW;
+        int boxH = icon + pad * 2;
+        int bx = 20, by = getHeight() - 46 - boxH;
+
+        g.setColor(new Color(0, 0, 0, 150));
+        g.fillRoundRect(bx, by, boxW, boxH, 10, 10);
+        g.setColor(new Color(150, 160, 185));
+        g.drawRoundRect(bx, by, boxW, boxH, 10, 10);
+
+        attack.drawIcon(g, bx + pad, by + pad, icon);
+        g.setColor(Color.WHITE);
+        g.drawString(attack.getName(), bx + pad * 2 + icon, by + pad + icon / 2 + 5);
+
+        if (inv.isLimited(inv.getSelectedSlot())) {
+            g.setFont(new Font("SansSerif", Font.PLAIN, 11));
+            g.setColor(new Color(255, 210, 120));
+            g.drawString(inv.getUsesLeft(inv.getSelectedSlot()) + " left",
+                    bx + pad * 2 + icon, by + boxH - 6);
+        }
+    }
+
+    private void drawInventoryMenu(Graphics2D g) {
+        Character active = getActive();
+        if (active == null) return;
+        Inventory inv = active.getInventory();
+
+        int w = getWidth(), h = getHeight();
+        g.setColor(new Color(0, 0, 0, 185));
+        g.fillRect(0, 0, w, h);
+
+        int sw = GameConfig.MENU_SLOT_WIDTH, sh = GameConfig.MENU_SLOT_HEIGHT;
+        int gap = GameConfig.MENU_SLOT_GAP;
+        int totalW = sw * Inventory.SLOTS + gap * (Inventory.SLOTS - 1);
+        int x0 = w / 2 - totalW / 2;
+        int y0 = h / 2 - sh / 2;
+
+        g.setFont(new Font("SansSerif", Font.BOLD, 26));
+        g.setColor(Color.WHITE);
+        drawCentered(g, active.getName() + "  \u2014  " + active.getClassLabel(), w / 2, y0 - 34);
+
+        String[] slotTitles = {"ATTACK 1", "ATTACK 2", "SPECIAL"};
+        for (int i = 0; i < Inventory.SLOTS; i++) {
+            menuSlotRect[i].setBounds(x0 + i * (sw + gap), y0, sw, sh);
+            drawInventorySlot(g, inv, i, slotTitles[i]);
+        }
+
+        g.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        g.setColor(new Color(170, 176, 195));
+        drawCentered(g, "\u2190/\u2192 or A/D select    ENTER confirm    1/2/3 quick-pick    E or ESC close",
+                w / 2, y0 + sh + 38);
+    }
+
+    private void drawInventorySlot(Graphics2D g, Inventory inv, int i, String title) {
+        Rectangle r = menuSlotRect[i];
+        Attack attack = inv.get(i);
+        boolean usable = inv.isUsable(i);
+        boolean cursor = i == menuCursor || r.contains(menuMouse);
+        boolean equipped = i == inv.getSelectedSlot();
+
+        g.setColor(usable ? new Color(28, 31, 44) : new Color(20, 21, 27));
+        g.fillRoundRect(r.x, r.y, r.width, r.height, 14, 14);
+        g.setStroke(new BasicStroke(cursor ? 3f : 1.5f));
+        g.setColor(!usable ? new Color(70, 72, 84)
+                : cursor ? new Color(255, 214, 96)
+                : equipped ? new Color(120, 200, 140) : new Color(64, 68, 88));
+        g.drawRoundRect(r.x, r.y, r.width, r.height, 14, 14);
+        g.setStroke(new BasicStroke(1f));
+
+        g.setFont(new Font("SansSerif", Font.BOLD, 12));
+        g.setColor(new Color(140, 148, 172));
+        g.drawString(title, r.x + 14, r.y + 22);
+        if (equipped && usable) {
+            g.setColor(new Color(120, 200, 140));
+            String tag = "EQUIPPED";
+            g.drawString(tag, r.x + r.width - 14 - g.getFontMetrics().stringWidth(tag), r.y + 22);
+        }
+
+        if (attack == null) return;
+
+        int icon = GameConfig.MENU_ICON_SIZE;
+        int ix = r.x + r.width / 2 - icon / 2;
+        int iy = r.y + 34;
+        Composite oldComposite = g.getComposite();
+        if (!usable) g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.35f));
+        attack.drawIcon(g, ix, iy, icon);
+        g.setComposite(oldComposite);
+
+        g.setFont(new Font("SansSerif", Font.BOLD, 17));
+        g.setColor(usable ? Color.WHITE : new Color(120, 124, 140));
+        drawCentered(g, attack.getName(), r.x + r.width / 2, iy + icon + 24);
+
+        g.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        g.setColor(usable ? new Color(178, 184, 204) : new Color(100, 104, 120));
+        int ty = iy + icon + 44;
+        for (String line : wrap(g, attack.getDescription(), r.width - 28)) {
+            drawCentered(g, line, r.x + r.width / 2, ty);
+            ty += 15;
+        }
+
+        int sy = r.y + r.height - 44;
+        g.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        g.setColor(new Color(150, 156, 178));
+        String dmg = attack.getBaseDamage() > 0 ? String.valueOf(attack.getBaseDamage()) : "\u2014";
+        g.drawString("Damage", r.x + 14, sy);
+        g.drawString("Range", r.x + 14, sy + 16);
+        g.setColor(usable ? Color.WHITE : new Color(120, 124, 140));
+        String rangeLabel = attack.getRange().getLabel();
+        g.drawString(dmg, r.x + r.width - 14 - g.getFontMetrics().stringWidth(dmg), sy);
+        g.drawString(rangeLabel, r.x + r.width - 14 - g.getFontMetrics().stringWidth(rangeLabel), sy + 16);
+
+        if (inv.isLimited(i)) {
+            g.setColor(new Color(150, 156, 178));
+            g.drawString("Uses", r.x + 14, sy + 32);
+            String uses = usable ? (inv.getUsesLeft(i) + " / " + attack.getMaxUses()) : "Used";
+            g.setColor(usable ? new Color(255, 210, 120) : new Color(220, 96, 96));
+            g.drawString(uses, r.x + r.width - 14 - g.getFontMetrics().stringWidth(uses), sy + 32);
+        }
+
+        if (!usable) {
+            g.setFont(new Font("SansSerif", Font.BOLD, 20));
+            g.setColor(new Color(220, 96, 96));
+            drawCentered(g, "USED", r.x + r.width / 2, iy + icon / 2 + 8);
+        }
+    }
+
+    private java.util.List<String> wrap(Graphics2D g, String text, int maxWidth) {
+        java.util.List<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (String word : text.split(" ")) {
+            String candidate = line.length() == 0 ? word : line + " " + word;
+            if (g.getFontMetrics().stringWidth(candidate) > maxWidth && line.length() > 0) {
+                lines.add(line.toString());
+                line = new StringBuilder(word);
+            } else {
+                line = new StringBuilder(candidate);
+            }
+        }
+        if (line.length() > 0) lines.add(line.toString());
+        return lines;
     }
 
     private void drawAimIndicator(Graphics2D g) {
@@ -760,8 +1066,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
 
         double dir = active.isFacingRight() ? 1 : -1;
         double rad = Math.toRadians(aimAngle);
-        int cx = (int) (active.getX() + Character.WIDTH / 2.0);
-        int cy = (int) (active.getY() + Character.HEIGHT * 0.35);
+        int cx = (int) (active.getX() + active.getWidth() / 2.0);
+        int cy = (int) (active.getY() + active.getHeight() * 0.35);
         int len = 40;
         int ex = (int) (cx + dir * len * Math.cos(rad));
         int ey = (int) (cy - len * Math.sin(rad));
@@ -796,7 +1102,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
 
         g.setFont(new Font("SansSerif", Font.PLAIN, 14));
         g.setColor(Color.WHITE);
-        g.drawString("MOVE ←/→   JUMP SPACE   AIM ↑/↓   CHARGE+FIRE hold/release F   SPECIAL G   PAUSE ESC", 20, getHeight() - 15);
+        g.drawString("MOVE ←/→   JUMP SPACE   AIM ↑/↓   CHARGE+FIRE hold/release F   INVENTORY E   QUICK-PICK 1/2/3   SPECIAL G   PAUSE ESC",
+                20, getHeight() - 15);
 
         if (logTime > 0 && lastLog != null && !lastLog.isEmpty()) {
             g.setFont(new Font("SansSerif", Font.BOLD, 18));

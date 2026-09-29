@@ -166,4 +166,38 @@ final class SpriteFactory {
         palette.put('W', new Color(210, 210, 220));
         return CharacterSprite.fromGrid(g, palette, 15);
     }
+
+    /** Tank build: broad pauldrons, tusked head and a two-handed hammer. */
+    static CharacterSprite orc() {
+        char[][] g = humanoidLimbs();
+        rect(g, 0, 5, 3, 11, 'H');   // heavy brow / jaw
+        rect(g, 2, 2, 4, 10, 'N');   // brow shadow
+        px(g, 3, 5, 'E');
+        px(g, 3, 9, 'E');            // eyes
+        rect(g, 5, 5, 5, 9, 'N');    // mouth line
+        px(g, 4, 5, 'T');
+        px(g, 4, 9, 'T');            // tusks
+        rect(g, 6, 7, 1, 2, 'P');    // back pauldron
+        rect(g, 6, 7, 12, 13, 'P');  // front pauldron
+        rect(g, 11, 12, 3, 11, 'X'); // belt
+        legs(g, 'L', 'D');
+
+        rect(g, 1, 3, 12, 14, 'M');  // hammer head
+        rect(g, 4, 13, 14, 14, 'S'); // hammer shaft
+
+        Map<Character, Color> palette = new HashMap<>();
+        palette.put('H', new Color(106, 142, 68));
+        palette.put('N', new Color(74, 102, 48));
+        palette.put('E', new Color(220, 70, 50));
+        palette.put('T', new Color(238, 236, 220));
+        palette.put('B', new Color(92, 126, 60));
+        palette.put('A', new Color(86, 116, 56));
+        palette.put('P', new Color(120, 104, 74));
+        palette.put('X', new Color(84, 58, 34));
+        palette.put('L', new Color(98, 76, 48));
+        palette.put('D', new Color(58, 44, 30));
+        palette.put('M', new Color(122, 126, 136));
+        palette.put('S', new Color(104, 70, 40));
+        return CharacterSprite.fromGrid(g, palette, 15);
+    }
 }
