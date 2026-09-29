@@ -163,4 +163,32 @@ public final class GameConfig {
     public static final int MENU_SLOT_HEIGHT = 250;
     public static final int MENU_SLOT_GAP = 22;
     public static final int MENU_ICON_SIZE = 62;
+
+    // ---- Melee swings ----------------------------------------------------
+
+    /**
+     * Reach of the swing arc, measured from the shoulder. The hammer is shorter
+     * than the sword but hits considerably harder.
+     */
+    public static final int KNIGHT_SWORD_DAMAGE = 28;
+    public static final double KNIGHT_SWORD_RADIUS = 66;
+    public static final double KNIGHT_SWORD_WINDUP = 0.10;
+    public static final double KNIGHT_SWORD_SWING = 0.26;
+    public static final double KNIGHT_SWORD_KNOCKBACK = 190;
+
+    public static final int ORC_HAMMER_DAMAGE = 38;
+    public static final double ORC_HAMMER_RADIUS = 56;
+    public static final double ORC_HAMMER_WINDUP = 0.38;
+    public static final double ORC_HAMMER_SWING = 0.16;
+    public static final double ORC_HAMMER_KNOCKBACK = 300;
+
+    /** How long the fading arc lingers after the weapon passes. */
+    public static final double MELEE_TRAIL_SECONDS = 0.28;
+
+    public static final double SCREEN_SHAKE_SECONDS = 0.35;
+    public static final double ORC_HAMMER_SHAKE = 9.0;
+    public static final double SWORD_SHAKE = 0.0;
+
+    /** F3 toggles hitbox drawing at runtime; this is only the starting state. */
+    public static final boolean DEBUG_HITBOXES = false;
 }

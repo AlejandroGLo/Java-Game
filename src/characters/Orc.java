@@ -2,6 +2,7 @@ package characters;
 
 import game.BattleContext;
 import attacks.AttackIcons;
+import attacks.MeleeAttack;
 import attacks.AttackRange;
 import attacks.Inventory;
 import attacks.ProjectileAttack;
@@ -33,9 +34,12 @@ public class Orc extends Character {
     @Override
     protected Inventory createInventory() {
         return new Inventory(
-                new ProjectileAttack("Hammer Slam",
-                        "Brings the great hammer down. Slow, but it hits harder than anything else.",
-                        PRIMARY, AttackRange.MELEE, AttackIcons.Kind.HAMMER),
+                new MeleeAttack("Hammer Slam",
+                        "A slow overhead wind-up, then the great hammer crashes down in front of the orc. Hits harder than anything else.",
+                        GameConfig.ORC_HAMMER_DAMAGE, GameConfig.ORC_HAMMER_RADIUS,
+                        GameConfig.ORC_HAMMER_WINDUP, GameConfig.ORC_HAMMER_SWING,
+                        GameConfig.ORC_HAMMER_KNOCKBACK, GameConfig.ORC_HAMMER_SHAKE,
+                        AttackIcons.Kind.HAMMER),
                 new ProjectileAttack("Goblin Bomber",
                         "Lobs a squealing goblin that detonates on contact, damaging a wide area.",
                         BOMBER, AttackRange.MEDIUM, AttackIcons.Kind.BOMB),

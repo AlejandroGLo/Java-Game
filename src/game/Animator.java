@@ -21,6 +21,9 @@ class Animator {
     private double squashTimer;
     private double stretchTimer;
     private double aimDegrees;
+    private boolean swinging;
+    private double swingWindup;
+    private double swingDuration;
 
     private boolean wasOnGround = true;
     private double lastVy;
@@ -57,7 +60,16 @@ class Animator {
 
     void triggerAttack(double aimDegrees) {
         this.aimDegrees = aimDegrees;
+        this.swinging = false;
         attackTimer = GameConfig.ATTACK_ANIM_SECONDS;
+    }
+
+    /** Overhead-to-ground weapon sweep, held in ATTACK for the whole swing. */
+    void triggerSwing(double windup, double duration) {
+        this.swinging = true;
+        this.swingWindup = windup;
+        this.swingDuration = duration;
+        attackTimer = windup + duration;
     }
 
     void triggerHit() {
@@ -163,6 +175,24 @@ class Animator {
                 break;
             }
             case ATTACK: {
+                if (swinging) {
+                    double total = swingWindup + swingDuration;
+                    double done = total - Math.max(0, attackTimer);
+                    if (done < swingWindup) {
+                        // Raise the weapon overhead and lean back a little.
+                        double k = swingWindup <= 0 ? 1 : done / swingWindup;
+                        frontArmDeg = -180 - 25 * k;
+                        backArmDeg = -18 * k;
+                        leanDeg = -4 * k;
+                    } else {
+                        // Sweep the full half-circle, finishing just past vertical.
+                        double k = Math.min(1, (done - swingWindup) / swingDuration);
+                        frontArmDeg = -205 + 215 * k;
+                        backArmDeg = -18 + 30 * k;
+                        leanDeg = -4 + 10 * k;
+                    }
+                    break;
+                }
                 double t = 1 - Math.max(0, attackTimer) / GameConfig.ATTACK_ANIM_SECONDS;
                 // Punch out fast, settle back slowly.
                 double reach = t < 0.25 ? t / 0.25 : 1 - (t - 0.25) / 0.75 * 0.35;

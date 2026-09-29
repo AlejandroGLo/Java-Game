@@ -2,6 +2,7 @@ package game;
 
 import attacks.Attack;
 import attacks.Inventory;
+import attacks.MeleeAttack;
 import characters.Character;
 import moves.Move;
 
@@ -47,6 +48,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
     private boolean inventoryOpen = false;
     private int menuCursor = 0;
     private Point menuMouse = new Point(-1, -1);
+    private MeleeSwing activeSwing;
+    private final List<MeleeSwing> fadingSwings = new ArrayList<>();
+    private double shakeTime;
+    private double shakeMagnitude;
+    private boolean debugHitboxes = GameConfig.DEBUG_HITBOXES;
     private final Rectangle[] menuSlotRect = {new Rectangle(), new Rectangle(), new Rectangle()};
     private int turnIndex = 0;
     private double turnTimeLeft;
@@ -186,9 +192,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         updateCharacterPhysics(dt);
         updateAnimators(dt);
         updateProjectiles(dt);
+        updateMeleeSwing(dt);
         updateEffects(dt);
 
-        if (turnLocked && projectiles.isEmpty()) {
+        if (turnLocked && projectiles.isEmpty() && activeSwing == null) {
             postActionTime -= dt;
             if (postActionTime <= 0) nextTurn();
         }
@@ -421,6 +428,64 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         }
     }
 
+    @Override
+    public void startMeleeSwing(Character user, MeleeAttack attack) {
+        activeSwing = new MeleeSwing(user, attack);
+        anim(user).triggerSwing(attack.getWindupSeconds(), attack.getSwingSeconds());
+        log(user.getName() + " swings " + attack.getName() + "!");
+    }
+
+    private void updateMeleeSwing(double dt) {
+        Iterator<MeleeSwing> fading = fadingSwings.iterator();
+        while (fading.hasNext()) {
+            MeleeSwing s = fading.next();
+            s.elapsed += dt;
+            if (s.elapsed > s.totalSeconds() + GameConfig.MELEE_TRAIL_SECONDS) fading.remove();
+        }
+
+        if (activeSwing == null) return;
+        MeleeSwing swing = activeSwing;
+        swing.elapsed += dt;
+
+        if (swing.isActive()) {
+            for (Character target : allCharacters) {
+                if (!target.isAlive() || target == swing.owner) continue;
+                if (!GameConfig.FRIENDLY_FIRE && target.getPlayerId() == swing.owner.getPlayerId()) continue;
+                if (swing.alreadyHit.contains(target)) continue;
+                if (!swing.covers(target)) continue;
+
+                swing.alreadyHit.add(target);
+                applyMeleeHit(swing, target);
+            }
+        }
+
+        if (swing.isFinished()) {
+            fadingSwings.add(swing);
+            activeSwing = null;
+        }
+    }
+
+    private void applyMeleeHit(MeleeSwing swing, Character target) {
+        MeleeAttack attack = swing.attack;
+        target.takeDamage(attack.getBaseDamage());
+        anim(target).triggerHit();
+
+        double dir = swing.facingRight ? 1 : -1;
+        target.setVx(target.getVx() + dir * attack.getKnockback());
+        target.setVy(target.getVy() - attack.getKnockback() * 0.35);
+        target.setOnGround(false);
+
+        effects.add(new Fx(target.getX() + target.getWidth() / 2.0,
+                target.getY() + target.getHeight() / 2.0,
+                GameConfig.EXPLOSION_FX_SECONDS * 0.6, 26));
+
+        if (attack.getScreenShake() > 0) {
+            shakeTime = GameConfig.SCREEN_SHAKE_SECONDS;
+            shakeMagnitude = attack.getScreenShake();
+        }
+        log(attack.getName() + " hits " + target.getName() + "!");
+    }
+
     private double maxRange() {
         return worldWidth * GameConfig.MAX_RANGE_FRACTION;
     }
@@ -481,6 +546,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
     }
 
     private void updateEffects(double dt) {
+        if (shakeTime > 0) shakeTime = Math.max(0, shakeTime - dt);
         Iterator<Fx> it = effects.iterator();
         while (it.hasNext()) {
             Fx fx = it.next();
@@ -547,6 +613,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         int code = e.getKeyCode();
         boolean firstPress = !pressed.contains(code);
         pressed.add(code);
+
+        if (firstPress && code == KeyEvent.VK_F3) {
+            debugHitboxes = !debugHitboxes;
+            log(debugHitboxes ? "Hitbox debug ON" : "Hitbox debug OFF");
+            return;
+        }
 
         // The menu owns Esc while it is open, so it closes rather than pausing.
         if (inventoryOpen) {
@@ -775,6 +847,14 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         g.setPaint(new GradientPaint(0, 0, new Color(135, 206, 235), 0, h, new Color(210, 235, 255)));
         g.fillRect(0, 0, w, h);
 
+        double shakeX = 0, shakeY = 0;
+        if (shakeTime > 0) {
+            double k = shakeTime / GameConfig.SCREEN_SHAKE_SECONDS;
+            shakeX = (Math.random() * 2 - 1) * shakeMagnitude * k;
+            shakeY = (Math.random() * 2 - 1) * shakeMagnitude * k;
+        }
+        g.translate(shakeX, shakeY);
+
         int gY = (int) groundY;
         g.setColor(new Color(60, 140, 60));
         g.fillRect(0, gY, w, 10);
@@ -813,9 +893,16 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
             g.fillOval((int) p.x - 4, (int) p.y - 4, 8, 8);
         }
 
+        drawMeleeSwings(g);
+
         if (initialized && !gameOver && !turnLocked) {
             drawAimIndicator(g);
         }
+        if (debugHitboxes) {
+            drawDebugHitboxes(g);
+        }
+
+        g.translate(-shakeX, -shakeY);
 
         drawHud(g);
         drawSelectedAttack(g);
@@ -1058,6 +1145,91 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Ba
         }
         if (line.length() > 0) lines.add(line.toString());
         return lines;
+    }
+
+    /** Fading wedge showing the ground the weapon has swept. */
+    private void drawMeleeSwings(Graphics2D g) {
+        if (activeSwing != null) drawSwing(g, activeSwing);
+        for (MeleeSwing swing : fadingSwings) drawSwing(g, swing);
+    }
+
+    private void drawSwing(Graphics2D g, MeleeSwing swing) {
+        double past = swing.elapsed - swing.totalSeconds();
+        double fade = past <= 0 ? 1 : Math.max(0, 1 - past / GameConfig.MELEE_TRAIL_SECONDS);
+        if (fade <= 0) return;
+
+        int r = (int) swing.attack.getRadius();
+        int cx = (int) swing.pivotX();
+        int cy = (int) swing.pivotY();
+
+        // Java2D angles run counter-clockwise from 3 o'clock; the arc starts
+        // overhead (90 degrees) and sweeps down through the facing side.
+        double swept = swing.sweepProgress() * 180;
+        int start = 90;
+        int extent = (int) (swing.facingRight ? -swept : swept);
+
+        if (Math.abs(extent) > 1) {
+            // A thick band along the outer edge reads as a swipe; a full pie
+            // wedge from the pivot just looks like a spotlight.
+            int band = (int) (r * 0.74);
+            float thickness = (float) (r * 0.42);
+
+            g.setStroke(new BasicStroke(thickness + 4, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND));
+            g.setColor(new Color(70, 60, 30, (int) (70 * fade)));
+            g.drawArc(cx - band, cy - band, band * 2, band * 2, start, extent);
+
+            g.setStroke(new BasicStroke(thickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND));
+            g.setColor(new Color(255, 240, 170, (int) (130 * fade)));
+            g.drawArc(cx - band, cy - band, band * 2, band * 2, start, extent);
+
+            g.setStroke(new BasicStroke(Math.max(2.5f, (float) (3.5 * fade))));
+            g.setColor(new Color(255, 255, 255, (int) (235 * fade)));
+            g.drawArc(cx - r, cy - r, r * 2, r * 2, start, extent);
+            g.setStroke(new BasicStroke(1f));
+        }
+
+        // Leading edge of the weapon.
+        if (swing.isActive()) {
+            double angle = Math.toRadians(start + extent);
+            int ex = (int) (cx + Math.cos(angle) * r);
+            int ey = (int) (cy - Math.sin(angle) * r);
+            g.setStroke(new BasicStroke(5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.setColor(new Color(60, 52, 28, 150));
+            g.drawLine(cx, cy, ex, ey);
+            g.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.setColor(new Color(255, 255, 245, 245));
+            g.drawLine(cx, cy, ex, ey);
+            g.setColor(new Color(255, 250, 220, 220));
+            g.fillOval(ex - 4, ey - 4, 8, 8);
+            g.setStroke(new BasicStroke(1f));
+        }
+    }
+
+    private void drawDebugHitboxes(Graphics2D g) {
+        g.setStroke(new BasicStroke(1f));
+        for (Character c : allCharacters) {
+            if (!c.isAlive()) continue;
+            g.setColor(c.getPlayerId() == 1 ? new Color(120, 200, 255) : new Color(255, 150, 150));
+            g.drawRect((int) c.getX(), (int) c.getY(), c.getWidth(), c.getHeight());
+            g.drawLine((int) (c.getX() + c.getWidth() / 2.0) - 3, (int) (c.getY() + c.getHeight() / 2.0),
+                    (int) (c.getX() + c.getWidth() / 2.0) + 3, (int) (c.getY() + c.getHeight() / 2.0));
+        }
+
+        MeleeSwing swing = activeSwing;
+        if (swing != null) {
+            int r = (int) swing.attack.getRadius();
+            int cx = (int) swing.pivotX();
+            int cy = (int) swing.pivotY();
+            g.setColor(new Color(255, 80, 80, 90));
+            g.fillArc(cx - r, cy - r, r * 2, r * 2, 90, swing.facingRight ? -180 : 180);
+            g.setColor(new Color(255, 60, 60));
+            g.drawArc(cx - r, cy - r, r * 2, r * 2, 90, swing.facingRight ? -180 : 180);
+            g.fillOval(cx - 3, cy - 3, 6, 6);
+        }
+
+        g.setFont(new Font("SansSerif", Font.BOLD, 12));
+        g.setColor(new Color(255, 120, 120));
+        g.drawString("F3 hitbox debug", 20, 80);
     }
 
     private void drawAimIndicator(Graphics2D g) {

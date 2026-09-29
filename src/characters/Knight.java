@@ -2,6 +2,7 @@ package characters;
 
 import game.BattleContext;
 import attacks.AttackIcons;
+import attacks.MeleeAttack;
 import attacks.AttackRange;
 import attacks.Inventory;
 import attacks.ProjectileAttack;
@@ -27,9 +28,12 @@ public class Knight extends Character {
     @Override
     protected Inventory createInventory() {
         return new Inventory(
-                new ProjectileAttack("Sword Strike",
-                        "A heavy swing of the knight's blade. Reliable damage at close quarters.",
-                        PRIMARY, AttackRange.SHORT, AttackIcons.Kind.SWORD),
+                new MeleeAttack("Sword Strike",
+                        "Sweeps the blade through a wide arc in front of the knight, from overhead down to the ground.",
+                        GameConfig.KNIGHT_SWORD_DAMAGE, GameConfig.KNIGHT_SWORD_RADIUS,
+                        GameConfig.KNIGHT_SWORD_WINDUP, GameConfig.KNIGHT_SWORD_SWING,
+                        GameConfig.KNIGHT_SWORD_KNOCKBACK, GameConfig.SWORD_SHAKE,
+                        AttackIcons.Kind.SWORD),
                 new ProjectileAttack("Sword Throw",
                         "Hurls the sword end over end. Travels further than the swing but hits for less.",
                         THROWN, AttackRange.MEDIUM, AttackIcons.Kind.SWORD_THROWN),
